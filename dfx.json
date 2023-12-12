@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "canisters": {
+    "vote_me_backend": {
+      "type": "rust",
+      "package": "vote_me_backend",
+      "candid": "src/vote_me_backend/vote_me_backend.did"
+    },
+    "vote_me_frontend": {
+      "type": "assets",
+      "source": [
+        "src/vote_me_frontend/assets"
+      ],
+      "dependencies": [
+        "vote_me_backend"
+      ]
+    }
+  },
+  "defaults": {
+    "build": {
+      "packtool": "",
+      "args": ""
+    }
+  },
+  "output_env_file": ".env"
+}
