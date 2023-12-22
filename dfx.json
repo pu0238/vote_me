@@ -2,18 +2,24 @@
   "version": 1,
   "canisters": {
     "vote_me_backend": {
-      "type": "rust",
+      "candid": "src/vote_me_backend/vote_me_backend.did",
       "package": "vote_me_backend",
-      "candid": "src/vote_me_backend/vote_me_backend.did"
+      "type": "custom",
+      "wasm": "target/wasm32-unknown-unknown/release/vote_me_backend-opt.wasm.gz",
+      "build": "./build.sh vote_me_backend",
+      "optimize": "cycles"
     },
     "vote_me_frontend": {
       "type": "assets",
       "source": [
-        "src/vote_me_frontend/assets"
+        "src/vote_me_frontend/dist"
       ],
       "dependencies": [
         "vote_me_backend"
-      ]
+      ],
+      "frontend": {
+        "entrypoint": "src/vote_me_frontend/dist/index.html"
+      }
     }
   },
   "defaults": {

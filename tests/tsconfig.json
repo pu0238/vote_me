@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "types": ["mocha", "chai", "node", "chai-as-promised"],
+    "typeRoots": ["./../node_modules/@types"],
+    "module": "commonjs",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ESNext",
+    "sourceMap": true,
+    "incremental": true,
+    "skipLibCheck": true,
+    "strictNullChecks": false,
+    "noImplicitAny": false,
+    "strictBindCallApply": false,
+    "forceConsistentCasingInFileNames": false,
+    "noFallthroughCasesInSwitch": false,
+    "esModuleInterop": true,
+    "strict": true,
+    "allowJs": true
+  }
+}

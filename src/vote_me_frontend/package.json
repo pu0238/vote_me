@@ -1,0 +1,23 @@
+{
+  "name": "vote_me_frontend",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/tailwind": "^4.0.0",
+    "@astrojs/vue": "^2.2.1",
+    "astro": "^2.10.14",
+    "astro-single-file": "^1.1.0",
+    "tailwindcss": "^3.3.3",
+    "vue": "^3.3.4"
+  },
+  "devDependencies": {
+    "html-minifier-terser": "^7.2.0"
+  }
+}
