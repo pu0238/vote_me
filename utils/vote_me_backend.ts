@@ -1,5 +1,5 @@
 import { ActorSubclass, Identity } from "@dfinity/agent";
-import { _SERVICE } from "../src/declarations/vote_me_backend/vote_me_backend.did";
+import { Config, _SERVICE } from "../src/declarations/vote_me_backend/vote_me_backend.did";
 import { canisterId, createActor } from "../src/declarations/vote_me_backend";
 import { execSync } from "child_process";
 import { Principal } from "@dfinity/principal";
@@ -13,14 +13,18 @@ export const getVoteMeBackend = (identity?: Identity) => {
   });
 };
 
-export const deploy = (entryIdentities: Principal[], silent = true) => {
+export const deploy = (config: Config, entryIdentities: Principal[], silent = true) => {
   const principals = entryIdentities.map(
-    (entryIdentity) => `
-    principal "${entryIdentity}";
-  `
+    (entryIdentity) => `principal "${entryIdentity}";\n`
   );
   const command = `
   dfx deploy vote_me_backend --argument '(
+    record { 
+      threshold=${config.threshold}:nat64; 
+      max_committee_size=${config.max_committee_size}:nat64;
+      committee_proposals_duration=${config.committee_proposals_duration}:nat64;
+      user_proposals_duration=${config.user_proposals_duration}:nat64;
+    },
     vec {
           ${principals}
     }

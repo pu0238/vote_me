@@ -1,11 +1,11 @@
 use candid::Principal;
 
-pub fn caller() -> Principal {
+pub fn caller() -> Result<Principal, String> {
     let caller = ic_cdk::caller();
     // The anonymous principal is not allowed to interact with the
     // encrypted notes canister.
     if caller == Principal::anonymous() {
-        panic!("Anonymous principal not allowed to make calls.")
+        return Err("Anonymous principal not allowed to make calls.".to_string());
     }
-    caller
+    Ok(caller)
 }

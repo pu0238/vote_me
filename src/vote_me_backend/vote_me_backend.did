@@ -1,6 +1,31 @@
-service : (vec principal) -> {
+type CommitteeActions = variant {
+  CancelPropose : nat64;
+  RegisterNewEntryIdentities : vec principal;
+  DemoteUser : principal;
+  PromoteUser : principal;
+};
+type CommitteeProposeCandidType = record {
+  id : nat64;
+  creator : principal;
+  action : CommitteeActions;
+  votes_no : nat64;
+  voters : vec principal;
+  created_at : nat64;
+  state : VoteState;
+  votes_yes : nat64;
+};
+type Config = record {
+  user_proposals_duration : nat64;
+  threshold : nat64;
+  committee_proposals_duration : nat64;
+  max_committee_size : nat64;
+};
+type VoteState = variant { Open; Rejected; Unresolved; Accepted; Cancelled };
+service : (Config, vec principal) -> {
   activate_user : (principal, text) -> ();
-  create_vote : () -> ();
-  register_new_entry_identities : (vec principal) -> ();
+  committee_create_propose : (CommitteeActions) -> (nat64);
+  committee_vote_on_propose : (nat64, bool) -> ();
+  get_committee_proposals : () -> (vec CommitteeProposeCandidType) query;
+  get_salt : () -> (text) query;
   user_belongs_to_committee : () -> (bool) query;
 }
