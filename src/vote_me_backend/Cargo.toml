@@ -13,3 +13,4 @@ candid = "0.9.8"
 ic-cdk = "0.11"
 ic-cdk-timers = "0.5" # Feel free to remove this dependency if you don't need timers
 serde = "1.0.193"
+thiserror = "1.0.56"

@@ -4,10 +4,19 @@ import { getEntryUserIdentity, getUserIdentity } from "../utils/identity";
 import { deploy, getVoteMeBackend } from "../utils/vote_me_backend";
 import { randomBytes, hexlify } from "ethers";
 import { aes_gcm_encrypt, aes_gcm_decrypt } from "../utils/cryptoHelpers";
-import { CommitteeActions, CommitteeProposeCandidType as CommitteePropose, Config } from "../src/declarations/vote_me_backend/vote_me_backend.did";
+import {
+  CommitteeActions,
+  CommitteeProposeCandidType as CommitteePropose,
+  Config,
+  PresidentialElectionsProposeCandidType,
+} from "../src/declarations/vote_me_backend/vote_me_backend.did";
 
 should();
 use(chaiAsPromised);
+
+(BigInt.prototype as any).toJSON = function (): number {
+  return this.toString();
+};
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -76,14 +85,17 @@ describe("Vote me", () => {
     // 11 people in voting districts with more than 500 people
     max_committee_size: 5n,
 
-    // Recommended: Math.floor(max_committee_size / 2) + 1
-    threshold: 1n,
-
     // Recommended: 24n * 60n * 60n * 1000n * 1_000n * 1_000n,
-    user_proposals_duration: 4n * 1_000n * 1_000n * 1_000n,
+    user_proposals_duration: 5n * 1_000n * 1_000n * 1_000n,
 
     // Recommended: 30n * 60n * 1_000n * 1_000n * 1_000n,
-    committee_proposals_duration: 4n * 1_000n * 1_000n * 1_000n,
+    committee_proposals_duration: 5n * 1_000n * 1_000n * 1_000n,
+
+    // Recommended: 50_01 (50.01%)
+    presidential_elections_threshold: 50_01,
+
+    // Recommended: 50_01 (50.01%)
+    committee_threshold: 50_01,
   };
 
   console.table({
@@ -94,12 +106,8 @@ describe("Vote me", () => {
   });
 
   beforeEach(() => {
-    //startBlockchainInBg()
     deploy(config, [entryIdentityPrincipal]);
   });
-  afterEach(() => {
-    //stopBlockchain()
-  })
 
   describe("Account activation", () => {
     it("User can activate existing account", async () => {
@@ -191,7 +199,7 @@ describe("Vote me", () => {
         ).committee_create_propose(registerNewEntryIdentities);
 
         await expect(
-          getVoteMeBackend(identity).committee_vote_on_propose(proposeId, true)
+          getVoteMeBackend(identity).committee_vote_on_propose(proposeId)
         ).to.be.fulfilled;
 
         await getVoteMeBackend()
@@ -205,9 +213,8 @@ describe("Vote me", () => {
             expect(proposals).to.be.deep.eq([
               {
                 id: 0n,
-                creator: identity.getPrincipal(),
+                creator: identityPrincipal,
                 action: registerNewEntryIdentities,
-                votes_no: 0n,
                 voters: [identityPrincipal],
                 state: { Open: null },
                 votes_yes: 1n,
@@ -215,8 +222,10 @@ describe("Vote me", () => {
             ]);
           });
 
-          await sleep(Number(config.committee_proposals_duration / 1_000n / 1_000n))
-          await getVoteMeBackend()
+        await sleep(
+          Number(config.committee_proposals_duration / 1_000n / 1_000n)
+        );
+        await getVoteMeBackend()
           .get_committee_proposals()
           .then((_proposals: CommitteePropose[]) => {
             const proposals = _proposals.map((propose) => {
@@ -227,21 +236,22 @@ describe("Vote me", () => {
             expect(proposals).to.be.deep.eq([
               {
                 id: 0n,
-                creator: identity.getPrincipal(),
+                creator: identityPrincipal,
                 action: registerNewEntryIdentities,
-                votes_no: 0n,
                 voters: [identityPrincipal],
                 state: { Accepted: null },
                 votes_yes: 1n,
               },
             ]);
-          }); 
-          await getVoteMeBackend(entryIdentitySecondUser).activate_user(
-            identitySecondUserPrincipal,
-            encryptedSeed
-          );
+          });
+        await getVoteMeBackend(entryIdentitySecondUser).activate_user(
+          identitySecondUserPrincipal,
+          encryptedSeed
+        );
 
-          await expect(getVoteMeBackend(identitySecondUser).user_belongs_to_committee()).to.eventually.be.eq(false)
+        await expect(
+          getVoteMeBackend(identitySecondUser).user_belongs_to_committee()
+        ).to.eventually.be.eq(false);
       });
       it("Committee can not 'register entry' identities", async () => {
         const encryptedSeed = await aes_gcm_encrypt(
@@ -261,7 +271,7 @@ describe("Vote me", () => {
           getVoteMeBackend(identity).committee_create_propose(
             registerNewEntryIdentities
           )
-        ).to.be.rejectedWith("Invalid CommitteeAction");
+        ).to.be.rejectedWith("Invalid action.");
       });
     });
     describe("Committee propose 'promote' user", () => {
@@ -287,25 +297,27 @@ describe("Vote me", () => {
           identity
         ).committee_create_propose(registerNewEntryIdentities);
         await expect(
-          getVoteMeBackend(identity).committee_vote_on_propose(registerPropose, true)
+          getVoteMeBackend(identity).committee_vote_on_propose(registerPropose)
         ).to.be.fulfilled;
-        await sleep(Number(config.committee_proposals_duration / 1_000n / 1_000n))
+        await sleep(
+          Number(config.committee_proposals_duration / 1_000n / 1_000n)
+        );
         await getVoteMeBackend(entryIdentitySecondUser).activate_user(
           identitySecondUserPrincipal,
           encryptedSeed2
         );
-       
+
         const promoteUser = {
-          PromoteUser: identitySecondUserPrincipal
+          PromoteUser: identitySecondUserPrincipal,
         };
         const proposeId = await getVoteMeBackend(
           identity
         ).committee_create_propose(promoteUser);
 
         await expect(
-          getVoteMeBackend(identity).committee_vote_on_propose(proposeId, true)
-        ).to.be.fulfilled;  
- 
+          getVoteMeBackend(identity).committee_vote_on_propose(proposeId)
+        ).to.be.fulfilled;
+
         await getVoteMeBackend()
           .get_committee_proposals()
           .then((_proposals: CommitteePropose[]) => {
@@ -313,22 +325,20 @@ describe("Vote me", () => {
               const { created_at, ...rest } = propose;
               return rest;
             });
-  
+
             expect(proposals).to.be.deep.eq([
               {
                 id: 0n,
-                creator: identity.getPrincipal(),
+                creator: identityPrincipal,
                 action: registerNewEntryIdentities,
-                votes_no: 0n,
                 voters: [identityPrincipal],
                 state: { Accepted: null },
                 votes_yes: 1n,
               },
               {
                 id: 1n,
-                creator: identity.getPrincipal(),
+                creator: identityPrincipal,
                 action: promoteUser,
-                votes_no: 0n,
                 voters: [identityPrincipal],
                 state: { Open: null },
                 votes_yes: 1n,
@@ -336,31 +346,30 @@ describe("Vote me", () => {
             ]);
           });
 
-
-          await sleep(Number(config.committee_proposals_duration / 1_000n / 1_00n))
-          await getVoteMeBackend()
+        await sleep(
+          Number(config.committee_proposals_duration / 1_000n / 1_00n)
+        );
+        await getVoteMeBackend()
           .get_committee_proposals()
           .then((_proposals: CommitteePropose[]) => {
             const proposals = _proposals.map((propose) => {
               const { created_at, ...rest } = propose;
               return rest;
             });
-  
+
             expect(proposals).to.be.deep.eq([
               {
                 id: 0n,
-                creator: identity.getPrincipal(),
+                creator: identityPrincipal,
                 action: registerNewEntryIdentities,
-                votes_no: 0n,
                 voters: [identityPrincipal],
                 state: { Accepted: null },
                 votes_yes: 1n,
               },
               {
                 id: 1n,
-                creator: identity.getPrincipal(),
+                creator: identityPrincipal,
                 action: promoteUser,
-                votes_no: 0n,
                 voters: [identityPrincipal],
                 state: { Accepted: null },
                 votes_yes: 1n,
@@ -368,10 +377,11 @@ describe("Vote me", () => {
             ]);
           });
 
-          await expect(getVoteMeBackend(identitySecondUser)
-          .user_belongs_to_committee()).to.eventually.be.eq(true)
+        await expect(
+          getVoteMeBackend(identitySecondUser).user_belongs_to_committee()
+        ).to.eventually.be.eq(true);
       });
-  
+
       it("User can not vote on 'promote' user propose", async () => {
         const encryptedSeed = await aes_gcm_encrypt(
           identity.getKeyPair().publicKey,
@@ -394,30 +404,32 @@ describe("Vote me", () => {
           identity
         ).committee_create_propose(registerNewEntryIdentities);
         await expect(
-          getVoteMeBackend(identity).committee_vote_on_propose(registerPropose, true)
+          getVoteMeBackend(identity).committee_vote_on_propose(registerPropose)
         ).to.be.fulfilled;
-        await sleep(Number(config.committee_proposals_duration / 1_000n / 1_000n))
+        await sleep(
+          Number(config.committee_proposals_duration / 1_000n / 1_000n)
+        );
         await getVoteMeBackend(entryIdentitySecondUser).activate_user(
           identitySecondUserPrincipal,
           encryptedSeed2
         );
-  
+
         const promoteUser = {
-          PromoteUser: identityPrincipal
+          PromoteUser: identityPrincipal,
         };
         const proposeId = await getVoteMeBackend(
           identity
         ).committee_create_propose(promoteUser);
-  
+
         await expect(
           getVoteMeBackend(identitySecondUser).committee_vote_on_propose(
-            proposeId,
-            true
+            proposeId
           )
         ).to.be.rejectedWith("User do not belongs to committee");
 
-        await expect(getVoteMeBackend(identitySecondUser)
-        .user_belongs_to_committee()).to.eventually.be.eq(false)
+        await expect(
+          getVoteMeBackend(identitySecondUser).user_belongs_to_committee()
+        ).to.eventually.be.eq(false);
       });
     });
 
@@ -444,26 +456,27 @@ describe("Vote me", () => {
           identity
         ).committee_create_propose(registerNewEntryIdentities);
         await expect(
-          getVoteMeBackend(identity).committee_vote_on_propose(registerPropose, true)
+          getVoteMeBackend(identity).committee_vote_on_propose(registerPropose)
         ).to.be.fulfilled;
-        await sleep(Number(config.committee_proposals_duration / 1_000n / 1_000n))
+        await sleep(
+          Number(config.committee_proposals_duration / 1_000n / 1_000n)
+        );
         await getVoteMeBackend(entryIdentitySecondUser).activate_user(
           identitySecondUserPrincipal,
           encryptedSeed2
         );
-  
+
         const demoteUser = {
-          DemoteUser: identitySecondUserPrincipal
+          DemoteUser: identitySecondUserPrincipal,
         };
         const proposeId = await getVoteMeBackend(
           identity
         ).committee_create_propose(demoteUser);
-        
-  
+
         await expect(
-          getVoteMeBackend(identity).committee_vote_on_propose(proposeId, true)
+          getVoteMeBackend(identity).committee_vote_on_propose(proposeId)
         ).to.be.fulfilled;
-  
+
         await getVoteMeBackend()
           .get_committee_proposals()
           .then((_proposals: CommitteePropose[]) => {
@@ -471,22 +484,20 @@ describe("Vote me", () => {
               const { created_at, ...rest } = propose;
               return rest;
             });
-  
+
             expect(proposals).to.be.deep.eq([
               {
                 id: 0n,
-                creator: identity.getPrincipal(),
+                creator: identityPrincipal,
                 action: registerNewEntryIdentities,
-                votes_no: 0n,
                 voters: [identityPrincipal],
                 state: { Accepted: null },
                 votes_yes: 1n,
               },
               {
                 id: 1n,
-                creator: identity.getPrincipal(),
+                creator: identityPrincipal,
                 action: demoteUser,
-                votes_no: 0n,
                 voters: [identityPrincipal],
                 state: { Open: null },
                 votes_yes: 1n,
@@ -494,30 +505,30 @@ describe("Vote me", () => {
             ]);
           });
 
-          await sleep(Number(config.committee_proposals_duration / 1_000n / 1_000n))
-          await getVoteMeBackend()
+        await sleep(
+          Number(config.committee_proposals_duration / 1_000n / 1_000n)
+        );
+        await getVoteMeBackend()
           .get_committee_proposals()
           .then((_proposals: CommitteePropose[]) => {
             const proposals = _proposals.map((propose) => {
               const { created_at, ...rest } = propose;
               return rest;
             });
-  
+
             expect(proposals).to.be.deep.eq([
               {
                 id: 0n,
-                creator: identity.getPrincipal(),
+                creator: identityPrincipal,
                 action: registerNewEntryIdentities,
-                votes_no: 0n,
                 voters: [identityPrincipal],
                 state: { Accepted: null },
                 votes_yes: 1n,
               },
               {
                 id: 1n,
-                creator: identity.getPrincipal(),
+                creator: identityPrincipal,
                 action: demoteUser,
-                votes_no: 0n,
                 voters: [identityPrincipal],
                 state: { Accepted: null },
                 votes_yes: 1n,
@@ -525,10 +536,11 @@ describe("Vote me", () => {
             ]);
           });
 
-          await expect(getVoteMeBackend(identitySecondUser)
-          .user_belongs_to_committee()).to.eventually.be.eq(false)
+        await expect(
+          getVoteMeBackend(identitySecondUser).user_belongs_to_committee()
+        ).to.eventually.be.eq(false);
       });
-  
+
       it("User can not vote on 'demote' user propose", async () => {
         const encryptedSeed = await aes_gcm_encrypt(
           identity.getKeyPair().publicKey,
@@ -551,74 +563,718 @@ describe("Vote me", () => {
           identity
         ).committee_create_propose(registerNewEntryIdentities);
         await expect(
-          getVoteMeBackend(identity).committee_vote_on_propose(registerPropose, true)
+          getVoteMeBackend(identity).committee_vote_on_propose(registerPropose)
         ).to.be.fulfilled;
-        await sleep(Number(config.committee_proposals_duration / 1_000n / 1_000n))
+        await sleep(
+          Number(config.committee_proposals_duration / 1_000n / 1_000n)
+        );
         await getVoteMeBackend(entryIdentitySecondUser).activate_user(
           identitySecondUserPrincipal,
           encryptedSeed2
         );
-  
+
         const demoteUser = {
-          DemoteUser: identitySecondUserPrincipal
+          DemoteUser: identitySecondUserPrincipal,
         };
         const proposeId = await getVoteMeBackend(
           identity
         ).committee_create_propose(demoteUser);
-  
+
         await expect(
           getVoteMeBackend(identitySecondUser).committee_vote_on_propose(
-            proposeId,
-            true
+            proposeId
           )
         ).to.be.rejectedWith("User do not belongs to committee");
-        await expect(getVoteMeBackend(identitySecondUser)
-        .user_belongs_to_committee()).to.eventually.be.eq(false)
+        await expect(
+          getVoteMeBackend(identitySecondUser).user_belongs_to_committee()
+        ).to.eventually.be.eq(false);
       });
     });
 
-    describe("Committee propose 'cancel vote' user", () => {
-      it("Committee can propose 'cancel vote' user", async () => {
-        const encryptedSeed = await aes_gcm_encrypt(
-          identity.getKeyPair().publicKey,
-          user1seed
-        );
-        await getVoteMeBackend(entryIdentity).activate_user(
-          identityPrincipal,
-          encryptedSeed
-        );
-  
-        const cancelPropose = {
-          CancelPropose: 0n
-        };
-        const proposeId = await getVoteMeBackend(
-          identity
-        ).committee_create_propose(cancelPropose);
-  
-        await expect(
-          getVoteMeBackend(identity).committee_vote_on_propose(proposeId, true)
-        ).to.be.fulfilled;
-  
-        await getVoteMeBackend()
-          .get_committee_proposals()
-          .then((_proposals: CommitteePropose[]) => {
-            const proposals = _proposals.map((propose) => {
-              const { created_at, ...rest } = propose;
-              return rest;
+    describe("Committee create user proposal", () => {
+      describe("CreateUserPropose", () => {
+        it("Committee can create 'presidential elections'", async () => {
+          const encryptedSeed = await aes_gcm_encrypt(
+            identity.getKeyPair().publicKey,
+            user1seed
+          );
+          await getVoteMeBackend(entryIdentity).activate_user(
+            identityPrincipal,
+            encryptedSeed
+          );
+
+          const encryptedSeed2 = await aes_gcm_encrypt(
+            identitySecondUser.getKeyPair().publicKey,
+            user1seed
+          );
+
+          const registerNewEntryIdentities = {
+            RegisterNewEntryIdentities: [entryIdentitySecondUserPrincipal],
+          };
+          const registerPropose = await getVoteMeBackend(
+            identity
+          ).committee_create_propose(registerNewEntryIdentities);
+          await expect(
+            getVoteMeBackend(identity).committee_vote_on_propose(
+              registerPropose
+            )
+          ).to.be.fulfilled;
+          await sleep(
+            Number(config.committee_proposals_duration / 1_000n / 1_000n)
+          );
+          await getVoteMeBackend(entryIdentitySecondUser).activate_user(
+            identitySecondUserPrincipal,
+            encryptedSeed2
+          );
+
+          const createUserPropose: CommitteeActions = {
+            CreateUserPropose: {
+              PresidentialElections: ["Jan Kowalski"],
+            },
+          };
+          const proposeId = await getVoteMeBackend(
+            identity
+          ).committee_create_propose(createUserPropose);
+
+          await expect(
+            getVoteMeBackend(identity).committee_vote_on_propose(proposeId)
+          ).to.be.fulfilled;
+
+          await getVoteMeBackend()
+            .get_committee_proposals()
+            .then((_proposals: CommitteePropose[]) => {
+              const proposals = _proposals.map((propose) => {
+                const { created_at, ...rest } = propose;
+                return rest;
+              });
+
+              expect(proposals).to.be.deep.eq([
+                {
+                  id: 0n,
+                  creator: identityPrincipal,
+                  action: registerNewEntryIdentities,
+                  voters: [identityPrincipal],
+                  state: { Accepted: null },
+                  votes_yes: 1n,
+                },
+                {
+                  id: 1n,
+                  creator: identityPrincipal,
+                  action: createUserPropose,
+                  voters: [identityPrincipal],
+                  state: { Open: null },
+                  votes_yes: 1n,
+                },
+              ]);
             });
-  
-            expect(proposals).to.be.deep.eq([
-              {
-                id: 0n,
-                creator: identity.getPrincipal(),
-                action: cancelPropose,
-                votes_no: 0n,
-                voters: [identityPrincipal],
-                state: { Open: null },
-                votes_yes: 1n,
-              },
-            ]);
-          });
+
+          await sleep(
+            Number(config.committee_proposals_duration / 1_000n / 1_000n)
+          );
+          await getVoteMeBackend()
+            .get_committee_proposals()
+            .then((_proposals: CommitteePropose[]) => {
+              const proposals = _proposals.map((propose) => {
+                const { created_at, ...rest } = propose;
+                return rest;
+              });
+
+              expect(proposals).to.be.deep.eq([
+                {
+                  id: 0n,
+                  creator: identityPrincipal,
+                  action: registerNewEntryIdentities,
+                  voters: [identityPrincipal],
+                  state: { Accepted: null },
+                  votes_yes: 1n,
+                },
+                {
+                  id: 1n,
+                  creator: identityPrincipal,
+                  action: createUserPropose,
+                  voters: [identityPrincipal],
+                  state: { Accepted: null },
+                  votes_yes: 1n,
+                },
+              ]);
+            });
+
+          getVoteMeBackend(identitySecondUser)
+            .get_presidential_elections()
+            .then((_proposals: PresidentialElectionsProposeCandidType[]) => {
+              const proposals = _proposals.map((propose) => {
+                const { created_at, ...rest } = propose;
+                return rest;
+              });
+
+              expect(proposals).to.be.deep.eq([
+                {
+                  id: 0n,
+                  creator: identityPrincipal,
+                  voters: [],
+                  state: { Open: null },
+
+                  votes_yes: [],
+                  vote_content: createUserPropose.CreateUserPropose,
+                },
+              ]);
+            });
+        });
+
+        it("User can vote on 'presidential elections' and winner is over a threshold", async () => {
+          const encryptedSeed = await aes_gcm_encrypt(
+            identity.getKeyPair().publicKey,
+            user1seed
+          );
+          await getVoteMeBackend(entryIdentity).activate_user(
+            identityPrincipal,
+            encryptedSeed
+          );
+
+          const encryptedSeed2 = await aes_gcm_encrypt(
+            identitySecondUser.getKeyPair().publicKey,
+            user1seed
+          );
+
+          const registerNewEntryIdentities = {
+            RegisterNewEntryIdentities: [entryIdentitySecondUserPrincipal],
+          };
+          const registerPropose = await getVoteMeBackend(
+            identity
+          ).committee_create_propose(registerNewEntryIdentities);
+          await expect(
+            getVoteMeBackend(identity).committee_vote_on_propose(
+              registerPropose
+            )
+          ).to.be.fulfilled;
+          await sleep(
+            Number(config.committee_proposals_duration / 1_000n / 1_000n)
+          );
+          await getVoteMeBackend(entryIdentitySecondUser).activate_user(
+            identitySecondUserPrincipal,
+            encryptedSeed2
+          );
+
+          const createUserPropose: CommitteeActions = {
+            CreateUserPropose: {
+              PresidentialElections: ["Jan Kowalski"],
+            },
+          };
+          const proposeId = await getVoteMeBackend(
+            identity
+          ).committee_create_propose(createUserPropose);
+
+          await expect(
+            getVoteMeBackend(identity).committee_vote_on_propose(proposeId)
+          ).to.be.fulfilled;
+
+          await getVoteMeBackend()
+            .get_committee_proposals()
+            .then((_proposals: CommitteePropose[]) => {
+              const proposals = _proposals.map((propose) => {
+                const { created_at, ...rest } = propose;
+                return rest;
+              });
+
+              expect(proposals).to.be.deep.eq([
+                {
+                  id: 0n,
+                  creator: identityPrincipal,
+                  action: registerNewEntryIdentities,
+                  voters: [identityPrincipal],
+                  state: { Accepted: null },
+                  votes_yes: 1n,
+                },
+                {
+                  id: 1n,
+                  creator: identityPrincipal,
+                  action: createUserPropose,
+                  voters: [identityPrincipal],
+                  state: { Open: null },
+                  votes_yes: 1n,
+                },
+              ]);
+            });
+
+          await sleep(
+            Number(config.committee_proposals_duration / 1_000n / 1_000n)
+          );
+          await getVoteMeBackend()
+            .get_committee_proposals()
+            .then((_proposals: CommitteePropose[]) => {
+              const proposals = _proposals.map((propose) => {
+                const { created_at, ...rest } = propose;
+                return rest;
+              });
+
+              expect(proposals).to.be.deep.eq([
+                {
+                  id: 0n,
+                  creator: identityPrincipal,
+                  action: registerNewEntryIdentities,
+                  voters: [identityPrincipal],
+                  state: { Accepted: null },
+                  votes_yes: 1n,
+                },
+                {
+                  id: 1n,
+                  creator: identityPrincipal,
+                  action: createUserPropose,
+                  voters: [identityPrincipal],
+                  state: { Accepted: null },
+                  votes_yes: 1n,
+                },
+              ]);
+            });
+
+          await getVoteMeBackend(identitySecondUser)
+            .get_presidential_elections()
+            .then((_proposals: PresidentialElectionsProposeCandidType[]) => {
+              const proposals = _proposals.map((propose) => {
+                const { created_at, ...rest } = propose;
+                return rest;
+              });
+
+              expect(JSON.stringify(proposals)).to.be.eq(
+                JSON.stringify([
+                  {
+                    id: 0n,
+                    creator: identityPrincipal,
+                    voters: [],
+                    state: { Open: null },
+                    votes_yes: { "0": "0" },
+                    proposal_content:
+                      createUserPropose.CreateUserPropose[
+                        "PresidentialElections"
+                      ],
+                  },
+                ])
+              );
+            });
+
+          await getVoteMeBackend(identitySecondUser).vote_on_propose(
+            {
+              PresidentialElections: 0n,
+            },
+            0n
+          );
+
+          await sleep(Number(config.user_proposals_duration / 1_000n / 1_000n));
+
+          await getVoteMeBackend(identitySecondUser)
+            .get_presidential_elections()
+            .then((_proposals: PresidentialElectionsProposeCandidType[]) => {
+              const proposals = _proposals.map((propose) => {
+                const { created_at, ...rest } = propose;
+                return rest;
+              });
+
+              expect(JSON.stringify(proposals)).to.be.eq(
+                JSON.stringify([
+                  {
+                    id: 0n,
+                    creator: identityPrincipal,
+                    voters: [identitySecondUserPrincipal],
+                    state: { Accepted: null },
+                    votes_yes: { "0": 1n },
+                    proposal_content:
+                      createUserPropose.CreateUserPropose[
+                        "PresidentialElections"
+                      ],
+                  },
+                ])
+              );
+            });
+        });
+
+        it("User can vote on 'presidential elections'. When there is no winner it is Unresolved (< 2)", async () => {
+          const encryptedSeed = await aes_gcm_encrypt(
+            identity.getKeyPair().publicKey,
+            user1seed
+          );
+          await getVoteMeBackend(entryIdentity).activate_user(
+            identityPrincipal,
+            encryptedSeed
+          );
+
+          const encryptedSeed2 = await aes_gcm_encrypt(
+            identitySecondUser.getKeyPair().publicKey,
+            user1seed
+          );
+
+          const registerNewEntryIdentities = {
+            RegisterNewEntryIdentities: [entryIdentitySecondUserPrincipal],
+          };
+          const registerPropose = await getVoteMeBackend(
+            identity
+          ).committee_create_propose(registerNewEntryIdentities);
+          await expect(
+            getVoteMeBackend(identity).committee_vote_on_propose(
+              registerPropose
+            )
+          ).to.be.fulfilled;
+          await sleep(
+            Number(config.committee_proposals_duration / 1_000n / 1_000n)
+          );
+          await getVoteMeBackend(entryIdentitySecondUser).activate_user(
+            identitySecondUserPrincipal,
+            encryptedSeed2
+          );
+
+          const createUserPropose: CommitteeActions = {
+            CreateUserPropose: {
+              PresidentialElections: ["Jan Kowalski", "Mariusz Broda"],
+            },
+          };
+          const proposeId = await getVoteMeBackend(
+            identity
+          ).committee_create_propose(createUserPropose);
+
+          await expect(
+            getVoteMeBackend(identity).committee_vote_on_propose(proposeId)
+          ).to.be.fulfilled;
+
+          await getVoteMeBackend()
+            .get_committee_proposals()
+            .then((_proposals: CommitteePropose[]) => {
+              const proposals = _proposals.map((propose) => {
+                const { created_at, ...rest } = propose;
+                return rest;
+              });
+
+              expect(proposals).to.be.deep.eq([
+                {
+                  id: 0n,
+                  creator: identityPrincipal,
+                  action: registerNewEntryIdentities,
+                  voters: [identityPrincipal],
+                  state: { Accepted: null },
+                  votes_yes: 1n,
+                },
+                {
+                  id: 1n,
+                  creator: identityPrincipal,
+                  action: createUserPropose,
+                  voters: [identityPrincipal],
+                  state: { Open: null },
+                  votes_yes: 1n,
+                },
+              ]);
+            });
+
+          await sleep(
+            Number(config.committee_proposals_duration / 1_000n / 1_000n)
+          );
+          await getVoteMeBackend()
+            .get_committee_proposals()
+            .then((_proposals: CommitteePropose[]) => {
+              const proposals = _proposals.map((propose) => {
+                const { created_at, ...rest } = propose;
+                return rest;
+              });
+
+              expect(proposals).to.be.deep.eq([
+                {
+                  id: 0n,
+                  creator: identityPrincipal,
+                  action: registerNewEntryIdentities,
+                  voters: [identityPrincipal],
+                  state: { Accepted: null },
+                  votes_yes: 1n,
+                },
+                {
+                  id: 1n,
+                  creator: identityPrincipal,
+                  action: createUserPropose,
+                  voters: [identityPrincipal],
+                  state: { Accepted: null },
+                  votes_yes: 1n,
+                },
+              ]);
+            });
+
+          await getVoteMeBackend(identitySecondUser)
+            .get_presidential_elections()
+            .then((_proposals: PresidentialElectionsProposeCandidType[]) => {
+              const proposals = _proposals.map((propose) => {
+                const { created_at, ...rest } = propose;
+                return rest;
+              });
+
+              expect(JSON.stringify(proposals)).to.be.eq(
+                JSON.stringify([
+                  {
+                    id: 0n,
+                    creator: identityPrincipal,
+                    voters: [],
+                    state: { Open: null },
+                    votes_yes: { "0": 0n, "1": 0n },
+                    proposal_content:
+                      createUserPropose.CreateUserPropose[
+                        "PresidentialElections"
+                      ],
+                  },
+                ])
+              );
+            });
+
+          await sleep(Number(config.user_proposals_duration / 1_000n / 1_000n));
+
+          await getVoteMeBackend(identitySecondUser)
+            .get_presidential_elections()
+            .then((_proposals: PresidentialElectionsProposeCandidType[]) => {
+              const proposals = _proposals.map((propose) => {
+                const { created_at, ...rest } = propose;
+                return rest;
+              });
+
+              expect(JSON.stringify(proposals)).to.be.eq(
+                JSON.stringify([
+                  {
+                    id: 0n,
+                    creator: identityPrincipal,
+                    voters: [],
+                    state: { Unresolved: null },
+                    votes_yes: { "0": 0n, "1": 0n },
+                    proposal_content:
+                      createUserPropose.CreateUserPropose[
+                        "PresidentialElections"
+                      ],
+                  },
+                ])
+              );
+            });
+        });
+
+        it("User can vote on 'presidential elections'. When there is no winner, create new vote (> 2)", async () => {
+          const encryptedSeed = await aes_gcm_encrypt(
+            identity.getKeyPair().publicKey,
+            user1seed
+          );
+          await getVoteMeBackend(entryIdentity).activate_user(
+            identityPrincipal,
+            encryptedSeed
+          );
+
+          const encryptedSeed2 = await aes_gcm_encrypt(
+            identitySecondUser.getKeyPair().publicKey,
+            user1seed
+          );
+
+          const registerNewEntryIdentities = {
+            RegisterNewEntryIdentities: [entryIdentitySecondUserPrincipal],
+          };
+          const registerPropose = await getVoteMeBackend(
+            identity
+          ).committee_create_propose(registerNewEntryIdentities);
+          await expect(
+            getVoteMeBackend(identity).committee_vote_on_propose(
+              registerPropose
+            )
+          ).to.be.fulfilled;
+          await sleep(
+            Number(config.committee_proposals_duration / 1_000n / 1_000n)
+          );
+          await getVoteMeBackend(entryIdentitySecondUser).activate_user(
+            identitySecondUserPrincipal,
+            encryptedSeed2
+          );
+
+          const createUserPropose: CommitteeActions = {
+            CreateUserPropose: {
+              PresidentialElections: [
+                "Jan Kowalski",
+                "Mariusz Broda",
+                "Andrzej Kłoda",
+              ],
+            },
+          };
+          const proposeId = await getVoteMeBackend(
+            identity
+          ).committee_create_propose(createUserPropose);
+
+          await expect(
+            getVoteMeBackend(identity).committee_vote_on_propose(proposeId)
+          ).to.be.fulfilled;
+
+          await getVoteMeBackend()
+            .get_committee_proposals()
+            .then((_proposals: CommitteePropose[]) => {
+              const proposals = _proposals.map((propose) => {
+                const { created_at, ...rest } = propose;
+                return rest;
+              });
+
+              expect(proposals).to.be.deep.eq([
+                {
+                  id: 0n,
+                  creator: identityPrincipal,
+                  action: registerNewEntryIdentities,
+                  voters: [identityPrincipal],
+                  state: { Accepted: null },
+                  votes_yes: 1n,
+                },
+                {
+                  id: 1n,
+                  creator: identityPrincipal,
+                  action: createUserPropose,
+                  voters: [identityPrincipal],
+                  state: { Open: null },
+                  votes_yes: 1n,
+                },
+              ]);
+            });
+
+          await sleep(
+            Number(config.committee_proposals_duration / 1_000n / 1_000n)
+          );
+          await getVoteMeBackend()
+            .get_committee_proposals()
+            .then((_proposals: CommitteePropose[]) => {
+              const proposals = _proposals.map((propose) => {
+                const { created_at, ...rest } = propose;
+                return rest;
+              });
+
+              expect(proposals).to.be.deep.eq([
+                {
+                  id: 0n,
+                  creator: identityPrincipal,
+                  action: registerNewEntryIdentities,
+                  voters: [identityPrincipal],
+                  state: { Accepted: null },
+                  votes_yes: 1n,
+                },
+                {
+                  id: 1n,
+                  creator: identityPrincipal,
+                  action: createUserPropose,
+                  voters: [identityPrincipal],
+                  state: { Accepted: null },
+                  votes_yes: 1n,
+                },
+              ]);
+            });
+
+          await getVoteMeBackend(identitySecondUser)
+            .get_presidential_elections()
+            .then((_proposals: PresidentialElectionsProposeCandidType[]) => {
+              const proposals = _proposals.map((propose) => {
+                const { created_at, ...rest } = propose;
+                return rest;
+              });
+
+              expect(JSON.stringify(proposals, null, 2)).to.be.eq(
+                JSON.stringify(
+                  [
+                    {
+                      id: 0n,
+                      creator: identityPrincipal,
+                      voters: [],
+                      state: { Open: null },
+                      votes_yes: { "0": 0n, "1": 0n, "2": 0n },
+                      proposal_content:
+                        createUserPropose.CreateUserPropose[
+                          "PresidentialElections"
+                        ],
+                    },
+                  ],
+                  null,
+                  2
+                )
+              );
+            });
+
+          await sleep(Number(config.user_proposals_duration / 1_000n / 1_000n));
+
+          await getVoteMeBackend(identitySecondUser)
+            .get_presidential_elections()
+            .then((_proposals: PresidentialElectionsProposeCandidType[]) => {
+              const proposals = _proposals.map((propose) => {
+                const { created_at, ...rest } = propose;
+                return rest;
+              });
+
+              expect(JSON.stringify(proposals, null, 2)).to.be.eq(
+                JSON.stringify(
+                  [
+                    {
+                      id: 0n,
+                      creator: identityPrincipal,
+                      voters: [],
+                      state: { Unresolved: null },
+                      votes_yes: { "0": 0n, "1": 0n, "2": 0n },
+                      proposal_content:
+                        createUserPropose.CreateUserPropose[
+                          "PresidentialElections"
+                        ],
+                    },
+                    {
+                      id: 1n,
+                      creator: identityPrincipal,
+                      voters: [],
+                      state: { Open: null },
+                      votes_yes: { "0": 0n, "1": 0n },
+                      proposal_content: [
+                        createUserPropose.CreateUserPropose[
+                          "PresidentialElections"
+                        ][0],
+                        createUserPropose.CreateUserPropose[
+                          "PresidentialElections"
+                        ][1],
+                      ],
+                    },
+                  ],
+                  null,
+                  2
+                )
+              );
+            });
+
+          await getVoteMeBackend(identitySecondUser)
+            .get_presidential_elections()
+            .then((_proposals: PresidentialElectionsProposeCandidType[]) => {
+              const proposals = _proposals.map((propose) => {
+                const { created_at, ...rest } = propose;
+                return rest;
+              });
+
+              expect(JSON.stringify(proposals, null, 2)).to.be.eq(
+                JSON.stringify(
+                  [
+                    {
+                      id: 0n,
+                      creator: identityPrincipal,
+                      voters: [],
+                      state: { Unresolved: null },
+                      votes_yes: { "0": 0n, "1": 0n, "2": 0n },
+                      proposal_content:
+                        createUserPropose.CreateUserPropose[
+                          "PresidentialElections"
+                        ],
+                    },
+                    {
+                      id: 1n,
+                      creator: identityPrincipal,
+                      voters: [],
+                      state: { Open: null },
+                      votes_yes: { "0": 0n, "1": 0n },
+                      proposal_content: [
+                        createUserPropose.CreateUserPropose[
+                          "PresidentialElections"
+                        ][0],
+                        createUserPropose.CreateUserPropose[
+                          "PresidentialElections"
+                        ][1],
+                      ],
+                    },
+                  ],
+                  null,
+                  2
+                )
+              );
+            });
+        });
       });
     });
   });

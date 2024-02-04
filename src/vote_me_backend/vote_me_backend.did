@@ -3,12 +3,12 @@ type CommitteeActions = variant {
   RegisterNewEntryIdentities : vec principal;
   DemoteUser : principal;
   PromoteUser : principal;
+  CreateUserPropose : UserPropose;
 };
 type CommitteeProposeCandidType = record {
   id : nat64;
   creator : principal;
   action : CommitteeActions;
-  votes_no : nat64;
   voters : vec principal;
   created_at : nat64;
   state : VoteState;
@@ -16,16 +16,48 @@ type CommitteeProposeCandidType = record {
 };
 type Config = record {
   user_proposals_duration : nat64;
-  threshold : nat64;
+  presidential_elections_threshold : nat16;
   committee_proposals_duration : nat64;
   max_committee_size : nat64;
+  committee_threshold : nat16;
+};
+type PresidentialElectionsProposeCandidType = record {
+  id : nat64;
+  creator : principal;
+  voters : vec principal;
+  created_at : nat64;
+  state : VoteState;
+  votes_yes : vec nat64;
+  proposal_content : vec text;
+};
+type SejmList = record {
+  reporting : text;
+  candidates : vec record { nat32; text };
+};
+type SenateEntry = record { reporting : text; candidate : text };
+type UserPropose = variant {
+  Referendum : vec text;
+  ElectionsToSenate : vec SenateEntry;
+  PresidentialElections : vec text;
+  ElectionsToSejm : vec record { nat32; SejmList };
+};
+type UserProposeVote = variant {
+  Referendum : vec text;
+  ElectionsToSenate : vec SenateEntry;
+  PresidentialElections : nat64;
+  ElectionsToSejm : vec record { nat32; SejmList };
 };
 type VoteState = variant { Open; Rejected; Unresolved; Accepted; Cancelled };
 service : (Config, vec principal) -> {
   activate_user : (principal, text) -> ();
   committee_create_propose : (CommitteeActions) -> (nat64);
-  committee_vote_on_propose : (nat64, bool) -> ();
+  committee_create_user_propose : (CommitteeActions) -> (nat64);
+  committee_vote_on_propose : (nat64) -> ();
   get_committee_proposals : () -> (vec CommitteeProposeCandidType) query;
+  get_presidential_elections : () -> (
+      vec PresidentialElectionsProposeCandidType,
+    ) query;
   get_salt : () -> (text) query;
   user_belongs_to_committee : () -> (bool) query;
+  vote_on_propose : (UserProposeVote, nat64) -> ();
 }

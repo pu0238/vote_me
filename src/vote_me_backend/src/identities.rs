@@ -1,12 +1,12 @@
 use candid::Principal;
 
-use crate::types::User;
+use crate::{errors::ContractError, types::User};
 
 pub struct Users(Vec<User>);
 
 impl Users {
-    pub fn new() -> Self {
-        Self(Vec::new())
+    pub fn default() -> Self {
+        Self(Vec::default())
     }
 
     pub fn len(&self) -> usize {
@@ -20,7 +20,7 @@ impl Users {
     pub fn is_in_committee(&self, identity: Principal) -> Result<bool, String> {
         Ok(self
             .get_user_by_identity(identity)
-            .ok_or("User not found".to_string())?
+            .ok_or(ContractError::UserNotFound.to_string())?
             .is_in_committee())
     }
 
@@ -51,7 +51,7 @@ impl Users {
             user.activate(identity, identity_seed);
             Ok(())
         } else {
-            Err("User not found".to_string())
+            Err(ContractError::UserNotFound.to_string())
         }
     }
 
@@ -60,11 +60,19 @@ impl Users {
             .0
             .iter()
             .find(|user| user.get_user_entry_identity() == identity)
-            .ok_or("User do not exist".to_string())?;
+            .ok_or(ContractError::UserNotFound.to_string())?;
 
         Ok(user
             .get_user_seed()
-            .ok_or("User do not exist".to_string())?
+            .ok_or(ContractError::UserNotFound.to_string())?
             .to_string())
+    }
+
+    pub fn get_committee_size(&self) -> usize {
+        self.0
+            .iter()
+            .filter(|user| user.is_in_committee())
+            .collect::<Vec<_>>()
+            .len()
     }
 }

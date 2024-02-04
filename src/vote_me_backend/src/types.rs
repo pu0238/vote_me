@@ -1,14 +1,21 @@
+use std::collections::{BTreeMap, HashMap};
+
 use candid::{CandidType, Deserialize, Principal};
+use ic_cdk::println;
 use ic_cdk_timers::TimerId;
 
-use crate::{close_vote, demote_user, promote_user, register_new_entry_identities};
+use crate::{
+    close_committee_proposal, close_presidential_elections, create_user_propose, demote_user,
+    errors::ContractError, promote_user, register_new_entry_identities,
+};
 
 #[derive(Clone, Debug, CandidType, Deserialize)]
 pub struct Config {
-    pub threshold: u64,
+    pub committee_threshold: u16,
     pub max_committee_size: u64,
     pub committee_proposals_duration: u64,
     pub user_proposals_duration: u64,
+    pub presidential_elections_threshold: u16,
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -77,7 +84,7 @@ impl User {
     }
 }
 
-#[derive(CandidType, Deserialize, Clone, PartialEq)]
+#[derive(CandidType, Deserialize, Clone, PartialEq, Debug)]
 pub enum VoteState {
     Open,
     Accepted,
@@ -86,73 +93,219 @@ pub enum VoteState {
     Cancelled,
 }
 
-#[derive(CandidType, Deserialize, Clone)]
-pub struct VoteContent {
-    pub title: String,
-    pub description: String,
-}
-
-pub struct Propose {
-    pub id: u64,
+pub struct PresidentialElectionsPropose {
+    pub id: usize,
+    _timer_id: TimerId,
     pub creator: Principal,
-    pub vote_content: VoteContent,
+    pub proposal_content: Vec<String>,
     pub created_at: u64,
     pub state: VoteState,
-    pub votes_yes: u64,
-    pub votes_no: u64,
+    pub votes_yes: Vec<u64>,
     pub voters: Vec<Principal>,
 }
 
-pub struct Proposals(pub Vec<Propose>);
+#[derive(CandidType, Deserialize, Clone)]
+pub struct PresidentialElectionsProposeCandidType {
+    pub id: usize,
+    pub creator: Principal,
+    pub proposal_content: Vec<String>,
+    pub created_at: u64,
+    pub state: VoteState,
+    pub votes_yes: Vec<u64>,
+    pub voters: Vec<Principal>,
+}
 
-impl Proposals {
-    pub fn new() -> Self {
-        Self(Vec::new())
+impl PresidentialElectionsProposeCandidType {
+    pub fn new(vote: &PresidentialElectionsPropose) -> Self {
+        Self {
+            id: vote.id,
+            creator: vote.creator,
+            created_at: vote.created_at,
+            state: vote.state.clone(),
+            votes_yes: vote.votes_yes.clone(),
+            voters: vote.voters.clone(),
+            proposal_content: vote.proposal_content.clone(),
+        }
+    }
+}
+
+pub struct PresidentialElectionsProposals(Vec<PresidentialElectionsPropose>);
+
+impl PresidentialElectionsProposals {
+    pub fn default() -> Self {
+        Self(Vec::default())
     }
 
-    fn next_id(&self) -> u64 {
-        self.0.len() as u64
+    fn next_id(&self) -> usize {
+        self.0.len()
     }
 
-    pub fn create_vote(&mut self, creator: Principal, vote_content: VoteContent) {
-        self.0.push(Propose {
+    pub fn get(&self) -> Vec<PresidentialElectionsProposeCandidType> {
+        self.0
+            .iter()
+            .map(|vote| PresidentialElectionsProposeCandidType::new(vote))
+            .collect()
+    }
+
+    pub fn create_proposal(
+        &mut self,
+        config: Config,
+        creator: Principal,
+        proposal_content: &Vec<String>,
+    ) {
+        let id = self.next_id();
+
+        let interval = std::time::Duration::from_nanos(config.committee_proposals_duration);
+        let _timer_id = ic_cdk_timers::set_timer(interval, move || {
+            close_presidential_elections(id);
+        });
+
+        let votes: Vec<u64> = proposal_content.iter().map(|_| 0).collect();
+
+        self.0.push(PresidentialElectionsPropose {
             id: self.next_id(),
             creator,
-            vote_content,
+            _timer_id,
+            proposal_content: proposal_content.clone(),
             created_at: ic_cdk::api::time(),
             state: VoteState::Open,
-            votes_yes: 0,
-            votes_no: 0,
-            voters: Vec::new(),
+            votes_yes: votes,
+            voters: Vec::default(),
         })
+    }
+
+    pub fn close_proposal(
+        &mut self,
+        config: Config,
+        id: usize,
+        users_count: usize,
+    ) -> Result<(), String> {
+        let (creator, new_propose) = {
+            let propose = self
+                .0
+                .get_mut(id)
+                .ok_or(ContractError::ProposeNotFound.to_string())?;
+
+            if ic_cdk::api::time() <= propose.created_at + config.committee_proposals_duration {
+                return Err(ContractError::ProposeInProgress.to_string());
+            }
+
+            if propose.proposal_content.len() <= 2 {
+                let mut content = propose.votes_yes.iter();
+                let first_item = content.next();
+                let second_item = content.next();
+
+                if (propose.proposal_content.len() == 1)
+                    || (propose.proposal_content.len() == 2 && first_item != second_item)
+                {
+                    propose.state = VoteState::Accepted;
+                    return Ok(());
+                }
+                propose.state = VoteState::Unresolved;
+                return Ok(());
+            }
+
+            let max_yes = *propose.votes_yes.iter().max().unwrap_or(&0) as usize;
+            let percent_of_yes_votes = ((max_yes * 100_00) / users_count) as u16;
+
+            if percent_of_yes_votes >= config.presidential_elections_threshold {
+                propose.state = VoteState::Accepted;
+                println!("Presidential vote with id: {:?} has been {:?}. This vote received {:?} percent of the votes", propose.id, propose.state, percent_of_yes_votes);
+                return Ok(());
+            }
+
+            let mut sorted_votes: Vec<_> = propose.votes_yes.iter().enumerate().collect();
+            sorted_votes.sort_by(|(_, votes), (_, next_votes)| next_votes.cmp(votes));
+
+            let indexes_of_two_latest: Vec<_> = sorted_votes
+                .iter()
+                .take(2)
+                .map(|(index, _)| {
+                    propose
+                        .proposal_content
+                        .get(*index)
+                        .expect("Propose do not exist!?")
+                        .clone()
+                })
+                .collect();
+
+            propose.state = VoteState::Unresolved;
+            println!("Presidential vote with id: {:?} has been {:?}. This vote received {:?} percent of the votes", propose.id, propose.state, percent_of_yes_votes);
+
+            (propose.creator, indexes_of_two_latest)
+        };
+        self.create_proposal(config, creator, &new_propose);
+
+        Ok(())
     }
 
     pub fn vote(
         &mut self,
         voter: Principal,
-        propose_id: u64,
-        user_vote: bool,
+        propose_id: usize,
+        candidate_index: &usize,
     ) -> Result<(), String> {
-        let propose = match self.0.iter_mut().find(|propose| propose.id == propose_id) {
-            Some(_propose) => Ok(_propose),
-            None => Err("Propose not found".to_string()),
-        }?;
+        let propose = self
+            .0
+            .iter_mut()
+            .find(|propose| propose.id == propose_id)
+            .ok_or(ContractError::ProposeNotFound.to_string())?;
 
         if propose.state != VoteState::Open {
-            return Err("Vote is not open".to_string());
+            return Err(ContractError::VoteNotOpen.to_string());
         }
         if propose.voters.contains(&voter) {
-            return Err("User already voted".to_string());
+            return Err(ContractError::UserAlreadyVoted.to_string());
         }
 
-        if user_vote {
-            propose.votes_yes += 1;
-        } else {
-            propose.votes_no += 1;
-        }
+        let votes = propose
+            .votes_yes
+            .get_mut(candidate_index.clone())
+            .ok_or(ContractError::CandidatesNotFound.to_string())?;
+        *votes += 1;
+
         propose.voters.push(voter);
 
         Ok(())
+    }
+}
+
+#[derive(CandidType, Deserialize, Clone)]
+pub struct SejmList {
+    reporting: String,
+    candidates: HashMap<u32, String>,
+}
+
+#[derive(CandidType, Deserialize, Clone)]
+pub struct SenateEntry {
+    reporting: String,
+    candidate: String,
+}
+
+#[derive(CandidType, Deserialize, Clone)]
+pub enum UserProposeVote {
+    PresidentialElections(usize),
+    ElectionsToSejm(BTreeMap<u32, SejmList>),
+    ElectionsToSenate(Vec<SenateEntry>),
+    Referendum(Vec<String>),
+}
+
+#[derive(CandidType, Deserialize, Clone)]
+pub enum UserPropose {
+    PresidentialElections(Vec<String>),
+    ElectionsToSejm(BTreeMap<u32, SejmList>),
+    ElectionsToSenate(Vec<SenateEntry>),
+    Referendum(Vec<String>),
+}
+
+impl UserPropose {
+    pub fn is_valid(&self) -> bool {
+        match &self {
+            UserPropose::PresidentialElections(candidates) => candidates.len() > 0,
+            UserPropose::ElectionsToSejm(candidates) => candidates.len() > 0,
+            UserPropose::ElectionsToSenate(entries) => entries.len() > 0,
+            UserPropose::Referendum(entries) => entries.len() > 0,
+        }
     }
 }
 
@@ -162,19 +315,21 @@ pub enum CommitteeActions {
     PromoteUser(Principal),
     DemoteUser(Principal),
     CancelPropose(usize),
+    CreateUserPropose(UserPropose),
 }
 
 impl CommitteeActions {
-    pub fn validate(self) -> Result<CommitteeActions, String> {
+    pub fn validate(self) -> Result<Self, String> {
         let is_valid = match &self {
             CommitteeActions::RegisterNewEntryIdentities(principals) => principals.len() > 0,
             CommitteeActions::PromoteUser(user) => user != &Principal::anonymous(),
             CommitteeActions::DemoteUser(user) => user != &Principal::anonymous(),
+            CommitteeActions::CreateUserPropose(propose) => propose.is_valid(),
             CommitteeActions::CancelPropose(_) => true,
         };
 
         if !is_valid {
-            return Err("Invalid CommitteeAction".to_string());
+            return Err(ContractError::InvalidAction.to_string());
         }
 
         Ok(self)
@@ -189,7 +344,6 @@ pub struct CommitteeProposeCandidType {
     created_at: u64,
     state: VoteState,
     votes_yes: u64,
-    votes_no: u64,
     voters: Vec<Principal>,
 }
 
@@ -202,7 +356,6 @@ impl CommitteeProposeCandidType {
             created_at: vote.created_at,
             state: vote.state.clone(),
             votes_yes: vote.votes_yes,
-            votes_no: vote.votes_no,
             voters: vote.voters.clone(),
         }
     }
@@ -213,11 +366,10 @@ pub struct CommitteePropose {
     id: usize,
     creator: Principal,
     action: CommitteeActions,
-    timer_id: TimerId,
+    _timer_id: TimerId,
     created_at: u64,
     state: VoteState,
     votes_yes: u64,
-    votes_no: u64,
     voters: Vec<Principal>,
 }
 
@@ -225,8 +377,8 @@ pub struct CommitteePropose {
 pub struct CommitteeProposals(Vec<CommitteePropose>);
 
 impl CommitteeProposals {
-    pub fn new() -> Self {
-        Self(Vec::new())
+    pub fn default() -> Self {
+        Self(Vec::default())
     }
 
     pub fn get(&self) -> Vec<CommitteeProposeCandidType> {
@@ -240,44 +392,50 @@ impl CommitteeProposals {
         self.0.len()
     }
 
-    fn execute_vote(propose: &mut CommitteePropose) -> Result<(), String> {
-        Ok(match &propose.action {
+    fn execute_proposal(_propose: &mut CommitteePropose) -> Result<(), String> {
+        Ok(match &_propose.action {
             CommitteeActions::RegisterNewEntryIdentities(identities) => {
                 register_new_entry_identities(identities)
             }
-
             CommitteeActions::PromoteUser(user) => promote_user(user)?,
             CommitteeActions::DemoteUser(user) => demote_user(user)?,
-            CommitteeActions::CancelPropose(id) => todo!(),
+            CommitteeActions::CancelPropose(_) => todo!(),
+            CommitteeActions::CreateUserPropose(propose) => {
+                create_user_propose(propose, _propose.creator)?
+            }
         })
     }
 
-    pub fn close_vote(&mut self, config: Config, id: usize) -> Result<(), String> {
+    pub fn close_proposal(
+        &mut self,
+        config: Config,
+        id: usize,
+        committee_size: usize,
+    ) -> Result<(), String> {
         let propose = self
             .0
             .get_mut(id)
-            .ok_or("Can not found propose".to_string())?;
+            .ok_or(ContractError::ProposeNotFound.to_string())?;
 
         if ic_cdk::api::time() <= propose.created_at + config.committee_proposals_duration {
-            return Err("Propose is still in progress".to_string());
+            return Err(ContractError::ProposeInProgress.to_string());
         }
 
-        if propose.votes_no >= config.threshold {
-            propose.state = VoteState::Rejected;
-        } else if propose.votes_yes >= config.threshold {
-            if Ok(()) == Self::execute_vote(propose) {
-                propose.state = VoteState::Accepted;
-            } else {
-                propose.state = VoteState::Rejected;
-            }
-        } else {
-            propose.state = VoteState::Unresolved;
+        let max_yes = propose.votes_yes as usize;
+        let percent_of_yes_votes = ((max_yes * 100_00) / committee_size) as u16;
+
+        if percent_of_yes_votes >= config.presidential_elections_threshold {
+            propose.state = VoteState::Accepted;
+            println!("Committee vote with id: {:?} has been {:?}. This vote received {:?} percent of the votes", propose.id, propose.state, percent_of_yes_votes);
+            return Self::execute_proposal(propose);
         }
 
+        propose.state = VoteState::Rejected;
+        println!("Committee vote with id: {:?} has been {:?}. This vote received {:?} percent of the votes", propose.id, propose.state, percent_of_yes_votes);
         Ok(())
     }
 
-    pub fn create_vote(
+    pub fn create_proposal(
         &mut self,
         config: Config,
         creator: Principal,
@@ -286,48 +444,39 @@ impl CommitteeProposals {
         let id = self.next_id();
 
         let interval = std::time::Duration::from_nanos(config.committee_proposals_duration);
-        let timer_id = ic_cdk_timers::set_timer(interval, move || {
-            close_vote(id);
+        let _timer_id = ic_cdk_timers::set_timer(interval, move || {
+            close_committee_proposal(id);
         });
 
         self.0.push(CommitteePropose {
             id,
             creator,
             action,
-            timer_id,
+            _timer_id,
             created_at: ic_cdk::api::time(),
             state: VoteState::Open,
             votes_yes: 0,
-            votes_no: 0,
-            voters: Vec::new(),
+            voters: Vec::default(),
         });
 
         id
     }
 
-    pub fn vote(
-        &mut self,
-        voter: Principal,
-        propose_id: usize,
-        user_vote: bool,
-    ) -> Result<(), String> {
-        let propose = match self.0.iter_mut().find(|propose| propose.id == propose_id) {
-            Some(_propose) => Ok(_propose),
-            None => Err("Propose not found".to_string()),
-        }?;
+    pub fn vote(&mut self, voter: Principal, propose_id: usize) -> Result<(), String> {
+        let propose = self
+            .0
+            .iter_mut()
+            .find(|propose| propose.id == propose_id)
+            .ok_or(ContractError::ProposeNotFound.to_string())?;
 
         if propose.state != VoteState::Open {
-            return Err("Vote is not open".to_string());
+            return Err(ContractError::VoteNotOpen.to_string());
         }
         if propose.voters.contains(&voter) {
-            return Err("User already voted".to_string());
+            return Err(ContractError::UserAlreadyVoted.to_string());
         }
 
-        if user_vote {
-            propose.votes_yes += 1;
-        } else {
-            propose.votes_no += 1;
-        }
+        propose.votes_yes += 1;
         propose.voters.push(voter);
 
         Ok(())

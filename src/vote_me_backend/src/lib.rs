@@ -1,13 +1,19 @@
 use std::cell::RefCell;
 
 use candid::Principal;
+use errors::ContractError;
 use ic_cdk::println;
 use identities::Users;
-use types::{CommitteeProposeCandidType, Proposals};
+use types::{
+    CommitteeProposeCandidType, PresidentialElectionsProposeCandidType, UserPropose,
+    UserProposeVote,
+};
 
 use crate::{
     helpers::caller,
-    types::{CommitteeActions, CommitteeProposals, Config, Role, User},
+    types::{
+        CommitteeActions, CommitteeProposals, Config, PresidentialElectionsProposals, Role, User,
+    },
 };
 
 mod errors;
@@ -17,22 +23,32 @@ mod types;
 
 thread_local! {
     static CONFIG: RefCell<Option<Config>> = RefCell::new(None);
-    static USERS: RefCell<Users> = RefCell::new(Users::new());
-    static PROPOSALS: RefCell<Proposals> = RefCell::new(Proposals::new());
-    static COMMITTEE_PROPOSALS: RefCell<CommitteeProposals> = RefCell::new(CommitteeProposals::new());
+    static USERS: RefCell<Users> = RefCell::new(Users::default());
+    //static PROPOSALS: RefCell<Proposals> = RefCell::new(Proposals::default());
+    static COMMITTEE_PROPOSALS: RefCell<CommitteeProposals> =
+        RefCell::new(CommitteeProposals::default());
+    static PRESIDENTIAL_ELECTIONS: RefCell<PresidentialElectionsProposals> =
+        RefCell::new(PresidentialElectionsProposals::default());
+    //ELECTIONS_TO_SEJM
+    //ELECTIONS_TO_SENATE
+    //REFERENDUM
+
 }
 
 #[ic_cdk::init]
 fn init(config: Config, entry_identities: Vec<Principal>) {
     let users_count = USERS.with(|users| users.borrow().len());
 
-    assert!(users_count == 0, "The canister is already initialized");
-
-    let committee_size = entry_identities.len() as u64;
-    let min_threshold = (committee_size / 2) + 1;
+    assert!(users_count == 0, "{}", ContractError::AlreadyInitialized);
     assert!(
-        config.threshold <= min_threshold,
-        "Threshold is lower then min threshold length (committee_size / 2) + 1"
+        config.committee_threshold <= 100_00,
+        "{}",
+        ContractError::ThresholdToLow
+    );
+    assert!(
+        config.presidential_elections_threshold <= 100_00,
+        "{}",
+        ContractError::InvalidPercentage
     );
 
     CONFIG.with(|config_ref| *config_ref.borrow_mut() = Some(config));
@@ -48,6 +64,9 @@ fn init(config: Config, entry_identities: Vec<Principal>) {
     println!(
         "Registered early identity as a committee member: {:?}",
         entry_identities
+            .iter()
+            .map(|identitie| identitie.to_string())
+            .collect::<Vec<_>>()
     );
 }
 
@@ -58,23 +77,24 @@ fn committee_create_propose(_propose: CommitteeActions) -> usize {
     let caller = caller().unwrap();
     let propose = _propose.validate().unwrap();
 
-    let config = CONFIG.with(|config| config.borrow().clone());
-
-    assert!(config.is_some(), "Config is not set");
+    let config = CONFIG
+        .with(|config| config.borrow().clone())
+        .ok_or(ContractError::ConfigNotSet)
+        .unwrap();
 
     COMMITTEE_PROPOSALS.with(|committee_proposals| {
         committee_proposals
             .borrow_mut()
-            .create_vote(config.unwrap(), caller, propose)
+            .create_proposal(config, caller, propose)
     })
 }
 
 #[ic_cdk::update(guard = "committee_guard")]
-fn committee_vote_on_propose(vote_id: usize, vote: bool) {
+fn committee_vote_on_propose(propose_id: usize) {
     let caller = caller().unwrap();
 
     COMMITTEE_PROPOSALS
-        .with(|committee_proposals| committee_proposals.borrow_mut().vote(caller, vote_id, vote))
+        .with(|committee_proposals| committee_proposals.borrow_mut().vote(caller, propose_id))
         .unwrap();
 }
 
@@ -100,6 +120,23 @@ fn get_salt() -> String {
         .unwrap()
 }
 
+#[ic_cdk::update(guard = "committee_guard")]
+fn committee_create_user_propose(_propose: CommitteeActions) -> usize {
+    let caller = caller().unwrap();
+    let propose = _propose.validate().unwrap();
+
+    let config = CONFIG
+        .with(|config| config.borrow().clone())
+        .ok_or(ContractError::ConfigNotSet)
+        .unwrap();
+
+    COMMITTEE_PROPOSALS.with(|committee_proposals| {
+        committee_proposals
+            .borrow_mut()
+            .create_proposal(config, caller, propose)
+    })
+}
+
 // User actions
 
 #[ic_cdk::update]
@@ -115,6 +152,29 @@ fn activate_user(identity: Principal, identity_seed: String) {
         .unwrap()
 }
 
+#[ic_cdk::query]
+fn get_presidential_elections() -> Vec<PresidentialElectionsProposeCandidType> {
+    PRESIDENTIAL_ELECTIONS.with(|proposals| proposals.borrow().get().clone())
+}
+
+#[ic_cdk::update]
+fn vote_on_propose(propose: UserProposeVote, propose_id: usize) {
+    let caller = caller().unwrap();
+
+    match propose {
+        UserProposeVote::PresidentialElections(candidate_index) => PRESIDENTIAL_ELECTIONS
+            .with(|committee_proposals| {
+                committee_proposals
+                    .borrow_mut()
+                    .vote(caller, propose_id, &candidate_index)
+            })
+            .unwrap(),
+        UserProposeVote::ElectionsToSejm(_) => todo!(),
+        UserProposeVote::ElectionsToSenate(_) => todo!(),
+        UserProposeVote::Referendum(_) => todo!(),
+    }
+}
+
 // TODO: get_proposals
 // TODO: vote_at
 
@@ -124,22 +184,41 @@ fn committee_guard() -> Result<(), String> {
     let caller = caller().unwrap();
 
     if !USERS.with(|users| users.borrow().is_in_committee(caller))? {
-        return Err("User do not belongs to committee".to_string());
+        return Err(ContractError::NotInCommittee.to_string());
     }
 
     Ok(())
 }
 
-fn close_vote(id: usize) {
-    let config = CONFIG.with(|config| config.borrow().clone());
-
-    assert!(config.is_some(), "Config is not set");
+fn close_committee_proposal(id: usize) {
+    let config = CONFIG
+        .with(|config| config.borrow().clone())
+        .ok_or(ContractError::ConfigNotSet)
+        .unwrap();
+    //let committee_size = USERS.with(|users| users.borrow().len());
+    let committee_size = USERS.with(|users| users.borrow().get_committee_size());
 
     COMMITTEE_PROPOSALS
         .with(|committee_proposals| {
             committee_proposals
                 .borrow_mut()
-                .close_vote(config.unwrap(), id)
+                .close_proposal(config, id, committee_size)
+        })
+        .unwrap();
+}
+
+fn close_presidential_elections(id: usize) {
+    let config = CONFIG
+        .with(|config| config.borrow().clone())
+        .ok_or(ContractError::ConfigNotSet)
+        .unwrap();
+    let users_count = USERS.with(|users| users.borrow().len());
+
+    PRESIDENTIAL_ELECTIONS
+        .with(|presidential_elections| {
+            presidential_elections
+                .borrow_mut()
+                .close_proposal(config, id, users_count)
         })
         .unwrap();
 }
@@ -157,7 +236,7 @@ fn promote_user(user_entry_identity: &Principal) -> Result<(), String> {
         let mut users = users.borrow_mut();
         let user = users
             .get_mut_user_by_identity(*user_entry_identity)
-            .ok_or("User do not exist".to_string())?;
+            .ok_or(ContractError::ProposeNotFound.to_string())?;
         user.promote();
         Ok(())
     })
@@ -168,21 +247,31 @@ fn demote_user(user_entry_identity: &Principal) -> Result<(), String> {
         let mut users = users.borrow_mut();
         let user = users
             .get_mut_user_by_identity(*user_entry_identity)
-            .ok_or("User do not exist".to_string())?;
+            .ok_or(ContractError::ProposeNotFound.to_string())?;
         user.demote();
         Ok(())
     })
 }
 
-// TODO: ADD PROPOSE CANCELLATION
-//
-// fn cancel_propose(id: &usize) -> Result<(), String>{
-//     USERS.with(|users| {
-//         let mut users = users.borrow_mut();
-//         let user = users.get_mut_user_by_entry_identity(*user_entry_identity).ok_or("User do not exist".to_string())?;
-//         user.demote();
-//         Ok(())
-//     })
-// }
+fn create_user_propose(propose: &UserPropose, creator: Principal) -> Result<(), String> {
+    let config = CONFIG
+        .with(|config| config.borrow().clone())
+        .ok_or(ContractError::ConfigNotSet)
+        .unwrap();
+
+    match propose {
+        UserPropose::PresidentialElections(proposal_content) => {
+            PRESIDENTIAL_ELECTIONS.with(|propose| {
+                propose
+                    .borrow_mut()
+                    .create_proposal(config, creator, &proposal_content)
+            })
+        }
+        UserPropose::ElectionsToSejm(_) => todo!(),
+        UserPropose::ElectionsToSenate(_) => todo!(),
+        UserPropose::Referendum(_) => todo!(),
+    };
+    Ok(())
+}
 
 ic_cdk::export_candid!();

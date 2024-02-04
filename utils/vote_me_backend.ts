@@ -20,10 +20,11 @@ export const deploy = (config: Config, entryIdentities: Principal[], silent = tr
   const command = `
   dfx deploy vote_me_backend --argument '(
     record { 
-      threshold=${config.threshold}:nat64; 
+      committee_threshold=${config.committee_threshold}:nat16; 
       max_committee_size=${config.max_committee_size}:nat64;
       committee_proposals_duration=${config.committee_proposals_duration}:nat64;
       user_proposals_duration=${config.user_proposals_duration}:nat64;
+      presidential_elections_threshold=${config.presidential_elections_threshold}:nat16;
     },
     vec {
           ${principals}
