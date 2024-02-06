@@ -1,0 +1,205 @@
+<mxfile host="65bd71144e">
+    <diagram id="i1UNh-WB7kW9DnGSw-cj" name="Page-1">
+        <mxGraphModel dx="937" dy="1944" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="101" value="&lt;h1&gt;Proces rejestracji oraz logowania&lt;/h1&gt;" style="text;html=1;strokeColor=none;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=0;" vertex="1" parent="1">
+                    <mxGeometry width="470" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="102" value="pesel" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="105" y="80" width="120" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="162" style="edgeStyle=none;html=1;exitX=0.696;exitY=1.012;exitDx=0;exitDy=0;exitPerimeter=0;" edge="1" parent="1" source="103" target="132">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="550" y="338"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="103" value="Skrócenie danych przy użyciu funkcji skrótu Keccak-256" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+                    <mxGeometry x="90" y="130" width="150" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="104" style="edgeStyle=none;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="102" target="103">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="60" y="215" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="105" value="Polaczenie danych" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+                    <mxGeometry x="320" y="340" width="140" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="106" style="edgeStyle=none;html=1;" edge="1" parent="1" source="103" target="105">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="340" y="340" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="107" value="Skrócenie danych przy użyciu funkcji skrótu Keccak-256" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+                    <mxGeometry x="315" y="430" width="150" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="108" style="edgeStyle=none;html=1;" edge="1" parent="1" source="105" target="107">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="109" value="Wytworzenie pary kluczy dzieki krzywej Ed25519&amp;nbsp;" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+                    <mxGeometry x="310" y="520" width="150" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="110" style="edgeStyle=none;html=1;" edge="1" parent="1" source="107" target="109">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="171" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="111" target="169">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="111" value="Klucz publiczny" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="240" y="650" width="120" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="112" style="edgeStyle=none;html=1;entryX=0.558;entryY=-0.022;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="109" target="111">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="166" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="113" target="165">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="520" y="720"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="113" value="Klucz prywatny" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="405" y="650" width="120" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="114" style="edgeStyle=none;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="109" target="113">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="115" value="numer dowodu" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="255" y="80" width="120" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="116" style="edgeStyle=none;html=1;entryX=0.371;entryY=0.004;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="117" target="105">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="161" style="edgeStyle=none;html=1;exitX=0.542;exitY=1.05;exitDx=0;exitDy=0;exitPerimeter=0;" edge="1" parent="1" source="117" target="132">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="650" y="300"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="117" value="Skrócenie danych przy użyciu funkcji skrótu Keccak-256" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+                    <mxGeometry x="240" y="130" width="150" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="118" style="edgeStyle=none;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="115" target="117">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="210" y="215" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="119" value="pin" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="405" y="80" width="120" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="120" style="edgeStyle=none;html=1;" edge="1" parent="1" source="121" target="105">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="160" style="edgeStyle=none;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="121" target="132">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="660" y="270"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="121" value="Skrócenie danych przy użyciu funkcji skrótu Keccak-256" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+                    <mxGeometry x="390" y="130" width="150" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="122" style="edgeStyle=none;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="119" target="121">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="360" y="215" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="123" value="czynnik dodatkowy" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="555" y="80" width="120" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="124" style="edgeStyle=none;html=1;" edge="1" parent="1" source="125" target="105">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="159" style="edgeStyle=none;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="125" target="132">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="125" value="Skrócenie danych przy użyciu funkcji skrótu Keccak-256" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+                    <mxGeometry x="540" y="130" width="150" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="126" style="edgeStyle=none;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="123" target="125">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="510" y="215" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="127" value="&lt;h1&gt;Wczesna tożsamość&lt;/h1&gt;&lt;p&gt;Jest to para kluczy pozwalajaca na tworzenie wczesnej wersji konta użytkownika.&amp;nbsp;&lt;/p&gt;&lt;p&gt;Klucze te sa generowane przez czlonka rejestracji urzytkownika.&lt;/p&gt;" style="text;html=1;strokeColor=none;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=0;" vertex="1" parent="1">
+                    <mxGeometry x="90" y="470" width="190" height="210" as="geometry"/>
+                </mxCell>
+                <mxCell id="155" style="edgeStyle=none;html=1;" edge="1" parent="1" source="156" target="158">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="156" value="sól" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="980" y="130" width="120" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="157" style="edgeStyle=none;html=1;" edge="1" parent="1" source="158" target="132">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="167" style="edgeStyle=none;html=1;" edge="1" parent="1" source="158" target="165">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1295" y="240"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="158" value="Skrócenie danych przy użyciu funkcji skrótu Keccak-256" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+                    <mxGeometry x="965" y="180" width="150" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="132" value="Polaczenie danych" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+                    <mxGeometry x="970" y="300" width="140" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="134" value="Skrócenie danych przy użyciu funkcji skrótu Keccak-256" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+                    <mxGeometry x="965" y="390" width="150" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="135" style="edgeStyle=none;html=1;" edge="1" parent="1" source="132" target="134">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="136" value="Wytworzenie pary kluczy dzieki krzywej Ed25519&amp;nbsp;" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+                    <mxGeometry x="960" y="480" width="150" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="137" style="edgeStyle=none;html=1;" edge="1" parent="1" source="134" target="136">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="138" value="Klucz publiczny" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="1050" y="610" width="120" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="139" style="edgeStyle=none;html=1;entryX=0.558;entryY=-0.022;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="136" target="138">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="175" style="edgeStyle=none;html=1;" edge="1" parent="1" source="140" target="169">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="140" value="Klucz prywatny" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="900" y="610" width="120" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="141" style="edgeStyle=none;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="136" target="140">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="154" value="&lt;h1&gt;Ostateczna tożsamość&lt;/h1&gt;&lt;p&gt;Jest to para kluczy pozwalajaca na rzeczywistą autoryzacje konta użytkownika.&amp;nbsp;&lt;/p&gt;&lt;p&gt;Klucze te sa generowane przez urzytkownika podczas procesu logowania.&lt;/p&gt;" style="text;html=1;strokeColor=none;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=0;" vertex="1" parent="1">
+                    <mxGeometry x="740" y="430" width="190" height="210" as="geometry"/>
+                </mxCell>
+                <mxCell id="164" value="Vote platform (VP)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" vertex="1" parent="1">
+                    <mxGeometry x="640" y="960" width="110" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="172" style="edgeStyle=none;html=1;" edge="1" parent="1" source="165" target="169">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="165" value="Szyfrowanie asynchroniczne&lt;br&gt;(AES-GCM)" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+                    <mxGeometry x="1220" y="680" width="150" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="170" style="edgeStyle=none;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="169" target="164">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="169" value="Zapis zaszyfrowanego seed w VP do użytkownika z kluczami publicznym tożsamosci" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+                    <mxGeometry x="605" y="850" width="180" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="174" value="&lt;h1&gt;Rejestracja&lt;/h1&gt;&lt;p&gt;Na owym etapie konczy sie proces rejestracji użytkownika.&amp;nbsp;&lt;/p&gt;&lt;p&gt;Rejestracja ta odbywa sie podczas aktywacji konta.&lt;/p&gt;" style="text;html=1;strokeColor=none;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=0;" vertex="1" parent="1">
+                    <mxGeometry x="380" y="860" width="190" height="120" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

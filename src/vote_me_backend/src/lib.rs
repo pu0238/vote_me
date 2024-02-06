@@ -98,28 +98,6 @@ fn committee_vote_on_propose(propose_id: usize) {
         .unwrap();
 }
 
-#[ic_cdk::query]
-fn get_committee_proposals() -> Vec<CommitteeProposeCandidType> {
-    COMMITTEE_PROPOSALS.with(|committee_proposals| committee_proposals.borrow().get().clone())
-}
-
-#[ic_cdk::query]
-fn user_belongs_to_committee() -> bool {
-    let caller = caller().unwrap();
-
-    USERS
-        .with(|users| users.borrow().is_in_committee(caller))
-        .unwrap()
-}
-
-#[ic_cdk::query]
-fn get_salt() -> String {
-    let entry_identity = caller().unwrap();
-    USERS
-        .with(|users| users.borrow().get_seed_by_entry_identity(entry_identity))
-        .unwrap()
-}
-
 #[ic_cdk::update(guard = "committee_guard")]
 fn committee_create_user_propose(_propose: CommitteeActions) -> usize {
     let caller = caller().unwrap();
@@ -173,6 +151,28 @@ fn vote_on_propose(propose: UserProposeVote, propose_id: usize) {
         UserProposeVote::ElectionsToSenate(_) => todo!(),
         UserProposeVote::Referendum(_) => todo!(),
     }
+}
+
+#[ic_cdk::query]
+fn get_salt() -> String {
+    let entry_identity = caller().unwrap();
+    USERS
+        .with(|users| users.borrow().get_seed_by_entry_identity(entry_identity))
+        .unwrap()
+}
+
+#[ic_cdk::query]
+fn get_committee_proposals() -> Vec<CommitteeProposeCandidType> {
+    COMMITTEE_PROPOSALS.with(|committee_proposals| committee_proposals.borrow().get().clone())
+}
+
+#[ic_cdk::query]
+fn user_belongs_to_committee() -> bool {
+    let caller = caller().unwrap();
+
+    USERS
+        .with(|users| users.borrow().is_in_committee(caller))
+        .unwrap()
 }
 
 // TODO: get_proposals
