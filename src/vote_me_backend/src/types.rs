@@ -271,40 +271,19 @@ impl PresidentialElectionsProposals {
 }
 
 #[derive(CandidType, Deserialize, Clone)]
-pub struct SejmList {
-    reporting: String,
-    candidates: HashMap<u32, String>,
-}
-
-#[derive(CandidType, Deserialize, Clone)]
-pub struct SenateEntry {
-    reporting: String,
-    candidate: String,
-}
-
-#[derive(CandidType, Deserialize, Clone)]
 pub enum UserProposeVote {
     PresidentialElections(usize),
-    ElectionsToSejm(BTreeMap<u32, SejmList>),
-    ElectionsToSenate(Vec<SenateEntry>),
-    Referendum(Vec<String>),
 }
 
 #[derive(CandidType, Deserialize, Clone)]
 pub enum UserPropose {
     PresidentialElections(Vec<String>),
-    ElectionsToSejm(BTreeMap<u32, SejmList>),
-    ElectionsToSenate(Vec<SenateEntry>),
-    Referendum(Vec<String>),
 }
 
 impl UserPropose {
     pub fn is_valid(&self) -> bool {
         match &self {
             UserPropose::PresidentialElections(candidates) => candidates.len() > 0,
-            UserPropose::ElectionsToSejm(candidates) => candidates.len() > 0,
-            UserPropose::ElectionsToSenate(entries) => entries.len() > 0,
-            UserPropose::Referendum(entries) => entries.len() > 0,
         }
     }
 }
@@ -314,7 +293,6 @@ pub enum CommitteeActions {
     RegisterNewEntryIdentities(Vec<Principal>),
     PromoteUser(Principal),
     DemoteUser(Principal),
-    CancelPropose(usize),
     CreateUserPropose(UserPropose),
 }
 
@@ -325,7 +303,6 @@ impl CommitteeActions {
             CommitteeActions::PromoteUser(user) => user != &Principal::anonymous(),
             CommitteeActions::DemoteUser(user) => user != &Principal::anonymous(),
             CommitteeActions::CreateUserPropose(propose) => propose.is_valid(),
-            CommitteeActions::CancelPropose(_) => true,
         };
 
         if !is_valid {
@@ -380,18 +357,15 @@ impl CommitteeProposals {
     pub fn default() -> Self {
         Self(Vec::default())
     }
-
     pub fn get(&self) -> Vec<CommitteeProposeCandidType> {
         self.0
             .iter()
             .map(|vote| CommitteeProposeCandidType::new(vote))
             .collect()
     }
-
     fn next_id(&self) -> usize {
         self.0.len()
     }
-
     fn execute_proposal(_propose: &mut CommitteePropose) -> Result<(), String> {
         Ok(match &_propose.action {
             CommitteeActions::RegisterNewEntryIdentities(identities) => {
@@ -399,13 +373,11 @@ impl CommitteeProposals {
             }
             CommitteeActions::PromoteUser(user) => promote_user(user)?,
             CommitteeActions::DemoteUser(user) => demote_user(user)?,
-            CommitteeActions::CancelPropose(_) => todo!(),
             CommitteeActions::CreateUserPropose(propose) => {
                 create_user_propose(propose, _propose.creator)?
             }
         })
     }
-
     pub fn close_proposal(
         &mut self,
         config: Config,
@@ -434,7 +406,6 @@ impl CommitteeProposals {
         println!("Committee vote with id: {:?} has been {:?}. This vote received {:?} percent of the votes", propose.id, propose.state, percent_of_yes_votes);
         Ok(())
     }
-
     pub fn create_proposal(
         &mut self,
         config: Config,
@@ -461,7 +432,6 @@ impl CommitteeProposals {
 
         id
     }
-
     pub fn vote(&mut self, voter: Principal, propose_id: usize) -> Result<(), String> {
         let propose = self
             .0
@@ -480,5 +450,72 @@ impl CommitteeProposals {
         propose.voters.push(voter);
 
         Ok(())
+    }
+}
+
+pub struct Users(Vec<User>);
+
+impl Users {
+    pub fn default() -> Self {
+        Self(Vec::default())
+    }
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    pub fn push(&mut self, user: User) {
+        self.0.push(user)
+    }
+    pub fn is_in_committee(&self, identity: Principal) -> Result<bool, String> {
+        Ok(self
+            .get_user_by_identity(identity)
+            .ok_or(ContractError::UserNotFound.to_string())?
+            .is_in_committee())
+    }
+    pub fn get_mut_user_by_identity(&mut self, caller: Principal) -> Option<&mut User> {
+        self.0
+            .iter_mut()
+            .find(|user| user.get_user_identity() == Some(caller))
+    }
+    fn get_user_by_identity(&self, identity: Principal) -> Option<&User> {
+        self.0.iter().find(|user| {
+            user.get_user_identity()
+                .is_some_and(|iter_identity| iter_identity == identity)
+        })
+    }
+    pub fn activate_user(
+        &mut self,
+        caller: Principal,
+        identity: Principal,
+        identity_seed: String,
+    ) -> Result<(), String> {
+        if let Some(user) = self
+            .0
+            .iter_mut()
+            .find(|user| user.get_user_entry_identity() == caller)
+        {
+            user.activate(identity, identity_seed);
+            Ok(())
+        } else {
+            Err(ContractError::UserNotFound.to_string())
+        }
+    }
+    pub fn get_seed_by_entry_identity(&self, identity: Principal) -> Result<String, String> {
+        let user = self
+            .0
+            .iter()
+            .find(|user| user.get_user_entry_identity() == identity)
+            .ok_or(ContractError::UserNotFound.to_string())?;
+
+        Ok(user
+            .get_user_seed()
+            .ok_or(ContractError::UserNotFound.to_string())?
+            .to_string())
+    }
+    pub fn get_committee_size(&self) -> usize {
+        self.0
+            .iter()
+            .filter(|user| user.is_in_committee())
+            .collect::<Vec<_>>()
+            .len()
     }
 }

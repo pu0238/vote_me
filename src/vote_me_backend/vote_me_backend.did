@@ -1,5 +1,4 @@
 type CommitteeActions = variant {
-  CancelPropose : nat64;
   RegisterNewEntryIdentities : vec principal;
   DemoteUser : principal;
   PromoteUser : principal;
@@ -30,34 +29,20 @@ type PresidentialElectionsProposeCandidType = record {
   votes_yes : vec nat64;
   proposal_content : vec text;
 };
-type SejmList = record {
-  reporting : text;
-  candidates : vec record { nat32; text };
-};
-type SenateEntry = record { reporting : text; candidate : text };
-type UserPropose = variant {
-  Referendum : vec text;
-  ElectionsToSenate : vec SenateEntry;
-  PresidentialElections : vec text;
-  ElectionsToSejm : vec record { nat32; SejmList };
-};
-type UserProposeVote = variant {
-  Referendum : vec text;
-  ElectionsToSenate : vec SenateEntry;
-  PresidentialElections : nat64;
-  ElectionsToSejm : vec record { nat32; SejmList };
-};
+type UserPropose = variant { PresidentialElections : vec text };
+type UserProposeVote = variant { PresidentialElections : nat64 };
 type VoteState = variant { Open; Rejected; Unresolved; Accepted; Cancelled };
 service : (Config, vec principal) -> {
   activate_user : (principal, text) -> ();
   committee_create_propose : (CommitteeActions) -> (nat64);
-  committee_create_user_propose : (CommitteeActions) -> (nat64);
   committee_vote_on_propose : (nat64) -> ();
   get_committee_proposals : () -> (vec CommitteeProposeCandidType) query;
+  get_committee_size : () -> (nat64) query;
   get_presidential_elections : () -> (
       vec PresidentialElectionsProposeCandidType,
     ) query;
   get_salt : () -> (text) query;
+  get_users_count : () -> (nat64) query;
   user_belongs_to_committee : () -> (bool) query;
   vote_on_propose : (UserProposeVote, nat64) -> ();
 }

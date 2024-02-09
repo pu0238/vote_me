@@ -1,3 +1,8 @@
+---
+import Menu from "../components/Menu.vue";
+import PageContent from "../components/PageContent.vue";
+---
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -11,8 +16,14 @@
       href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400&family=Lato:wght@400;700;900&display=swap"
       rel="stylesheet"
     />
+    <script>
+      (window as any).global = window
+    </script>
   </head>
-  <body>
-dfdf
+  <body class="bg-stone-900">
+    <Menu client:only />
+    <div class="container mx-auto">
+      <PageContent client:only/>
+    </div>
   </body>
 </html>

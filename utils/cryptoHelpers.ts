@@ -59,7 +59,7 @@ export async function aes_gcm_decrypt(
     [...cipher_decoded].map((ch) => ch.charCodeAt(0))
   ).buffer;
 
-  let decrypted_data_encoded = await window.crypto.subtle.decrypt(
+  let decrypted_data_encoded = await crypto.subtle.decrypt(
     {
       name: "AES-GCM",
       iv: iv_encoded,

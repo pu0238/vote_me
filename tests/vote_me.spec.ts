@@ -112,7 +112,7 @@ describe("Vote me", () => {
   describe("Account activation", () => {
     it("User can activate existing account", async () => {
       const encryptedSeed = await aes_gcm_encrypt(
-        identity.getKeyPair().publicKey,
+        entryIdentity.getKeyPair().publicKey,
         user1seed
       );
 
@@ -133,7 +133,7 @@ describe("Vote me", () => {
       );
 
       const encryptedSeed = await aes_gcm_encrypt(
-        identity.getKeyPair().publicKey,
+        entryIdentity.getKeyPair().publicKey,
         user1seed
       );
 
@@ -146,7 +146,7 @@ describe("Vote me", () => {
     });
 
     it("User get own encrypted salt", async () => {
-      const keyPair = identity.getKeyPair();
+      const keyPair = entryIdentity.getKeyPair();
       const encryptedSeed = await aes_gcm_encrypt(keyPair.publicKey, user1seed);
 
       await getVoteMeBackend(entryIdentity).activate_user(
@@ -158,12 +158,15 @@ describe("Vote me", () => {
         getVoteMeBackend(entryIdentity).get_salt()
       ).to.be.eventually.eq(encryptedSeed);
 
-      aes_gcm_decrypt(encryptedSeed, keyPair.secretKey);
+      const decryptedSeed = await aes_gcm_decrypt(encryptedSeed, keyPair.secretKey)
+      console.log({decryptedSeed, user1seed})
+
+      expect(decryptedSeed).to.be.eq(user1seed);
     });
 
     it("User salt is eq decrypted salt", async () => {
       const encryptedSeed = await aes_gcm_encrypt(
-        identity.getKeyPair().publicKey,
+        entryIdentity.getKeyPair().publicKey,
         user1seed
       );
 
@@ -183,7 +186,7 @@ describe("Vote me", () => {
     describe("Committee 'register entry' identities", () => {
       it("Committee can 'register entry' without identities", async () => {
         const encryptedSeed = await aes_gcm_encrypt(
-          identity.getKeyPair().publicKey,
+          entryIdentity.getKeyPair().publicKey,
           user1seed
         );
         await getVoteMeBackend(entryIdentity).activate_user(
@@ -255,7 +258,7 @@ describe("Vote me", () => {
       });
       it("Committee can not 'register entry' identities", async () => {
         const encryptedSeed = await aes_gcm_encrypt(
-          identity.getKeyPair().publicKey,
+          entryIdentity.getKeyPair().publicKey,
           user1seed
         );
         await getVoteMeBackend(entryIdentity).activate_user(
@@ -277,7 +280,7 @@ describe("Vote me", () => {
     describe("Committee propose 'promote' user", () => {
       it("Committee can propose 'promote' user", async () => {
         const encryptedSeed = await aes_gcm_encrypt(
-          identity.getKeyPair().publicKey,
+          entryIdentity.getKeyPair().publicKey,
           user1seed
         );
         await getVoteMeBackend(entryIdentity).activate_user(
@@ -384,7 +387,7 @@ describe("Vote me", () => {
 
       it("User can not vote on 'promote' user propose", async () => {
         const encryptedSeed = await aes_gcm_encrypt(
-          identity.getKeyPair().publicKey,
+          entryIdentity.getKeyPair().publicKey,
           user1seed
         );
         await getVoteMeBackend(entryIdentity).activate_user(
@@ -436,7 +439,7 @@ describe("Vote me", () => {
     describe("Committee propose 'demote' user", () => {
       it("Committee can propose 'demote' user", async () => {
         const encryptedSeed = await aes_gcm_encrypt(
-          identity.getKeyPair().publicKey,
+          entryIdentity.getKeyPair().publicKey,
           user1seed
         );
         await getVoteMeBackend(entryIdentity).activate_user(
@@ -543,7 +546,7 @@ describe("Vote me", () => {
 
       it("User can not vote on 'demote' user propose", async () => {
         const encryptedSeed = await aes_gcm_encrypt(
-          identity.getKeyPair().publicKey,
+          entryIdentity.getKeyPair().publicKey,
           user1seed
         );
         await getVoteMeBackend(entryIdentity).activate_user(
@@ -595,7 +598,7 @@ describe("Vote me", () => {
       describe("CreateUserPropose", () => {
         it("Committee can create 'presidential elections'", async () => {
           const encryptedSeed = await aes_gcm_encrypt(
-            identity.getKeyPair().publicKey,
+            entryIdentity.getKeyPair().publicKey,
             user1seed
           );
           await getVoteMeBackend(entryIdentity).activate_user(
@@ -723,7 +726,7 @@ describe("Vote me", () => {
 
         it("User can vote on 'presidential elections' and winner is over a threshold", async () => {
           const encryptedSeed = await aes_gcm_encrypt(
-            identity.getKeyPair().publicKey,
+            entryIdentity.getKeyPair().publicKey,
             user1seed
           );
           await getVoteMeBackend(entryIdentity).activate_user(
@@ -889,7 +892,7 @@ describe("Vote me", () => {
 
         it("User can vote on 'presidential elections'. When there is no winner it is Unresolved (< 2)", async () => {
           const encryptedSeed = await aes_gcm_encrypt(
-            identity.getKeyPair().publicKey,
+            entryIdentity.getKeyPair().publicKey,
             user1seed
           );
           await getVoteMeBackend(entryIdentity).activate_user(
@@ -1048,7 +1051,7 @@ describe("Vote me", () => {
 
         it("User can vote on 'presidential elections'. When there is no winner, create new vote (> 2)", async () => {
           const encryptedSeed = await aes_gcm_encrypt(
-            identity.getKeyPair().publicKey,
+            entryIdentity.getKeyPair().publicKey,
             user1seed
           );
           await getVoteMeBackend(entryIdentity).activate_user(

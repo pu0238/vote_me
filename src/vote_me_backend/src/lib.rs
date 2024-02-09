@@ -3,10 +3,10 @@ use std::cell::RefCell;
 use candid::Principal;
 use errors::ContractError;
 use ic_cdk::println;
-use identities::Users;
 use types::{
     CommitteeProposeCandidType, PresidentialElectionsProposeCandidType, UserPropose,
     UserProposeVote,
+    Users
 };
 
 use crate::{
@@ -18,21 +18,15 @@ use crate::{
 
 mod errors;
 mod helpers;
-mod identities;
 mod types;
 
 thread_local! {
     static CONFIG: RefCell<Option<Config>> = RefCell::new(None);
     static USERS: RefCell<Users> = RefCell::new(Users::default());
-    //static PROPOSALS: RefCell<Proposals> = RefCell::new(Proposals::default());
     static COMMITTEE_PROPOSALS: RefCell<CommitteeProposals> =
         RefCell::new(CommitteeProposals::default());
     static PRESIDENTIAL_ELECTIONS: RefCell<PresidentialElectionsProposals> =
         RefCell::new(PresidentialElectionsProposals::default());
-    //ELECTIONS_TO_SEJM
-    //ELECTIONS_TO_SENATE
-    //REFERENDUM
-
 }
 
 #[ic_cdk::init]
@@ -98,23 +92,6 @@ fn committee_vote_on_propose(propose_id: usize) {
         .unwrap();
 }
 
-#[ic_cdk::update(guard = "committee_guard")]
-fn committee_create_user_propose(_propose: CommitteeActions) -> usize {
-    let caller = caller().unwrap();
-    let propose = _propose.validate().unwrap();
-
-    let config = CONFIG
-        .with(|config| config.borrow().clone())
-        .ok_or(ContractError::ConfigNotSet)
-        .unwrap();
-
-    COMMITTEE_PROPOSALS.with(|committee_proposals| {
-        committee_proposals
-            .borrow_mut()
-            .create_proposal(config, caller, propose)
-    })
-}
-
 // User actions
 
 #[ic_cdk::update]
@@ -130,11 +107,6 @@ fn activate_user(identity: Principal, identity_seed: String) {
         .unwrap()
 }
 
-#[ic_cdk::query]
-fn get_presidential_elections() -> Vec<PresidentialElectionsProposeCandidType> {
-    PRESIDENTIAL_ELECTIONS.with(|proposals| proposals.borrow().get().clone())
-}
-
 #[ic_cdk::update]
 fn vote_on_propose(propose: UserProposeVote, propose_id: usize) {
     let caller = caller().unwrap();
@@ -147,10 +119,12 @@ fn vote_on_propose(propose: UserProposeVote, propose_id: usize) {
                     .vote(caller, propose_id, &candidate_index)
             })
             .unwrap(),
-        UserProposeVote::ElectionsToSejm(_) => todo!(),
-        UserProposeVote::ElectionsToSenate(_) => todo!(),
-        UserProposeVote::Referendum(_) => todo!(),
     }
+}
+
+#[ic_cdk::query]
+fn get_presidential_elections() -> Vec<PresidentialElectionsProposeCandidType> {
+    PRESIDENTIAL_ELECTIONS.with(|proposals| proposals.borrow().get().clone())
 }
 
 #[ic_cdk::query]
@@ -167,6 +141,16 @@ fn get_committee_proposals() -> Vec<CommitteeProposeCandidType> {
 }
 
 #[ic_cdk::query]
+fn get_committee_size() -> usize {
+    USERS.with(|users| users.borrow().get_committee_size())
+}
+
+#[ic_cdk::query]
+fn get_users_count() -> usize {
+    USERS.with(|users| users.borrow().len())
+}
+
+#[ic_cdk::query]
 fn user_belongs_to_committee() -> bool {
     let caller = caller().unwrap();
 
@@ -174,9 +158,6 @@ fn user_belongs_to_committee() -> bool {
         .with(|users| users.borrow().is_in_committee(caller))
         .unwrap()
 }
-
-// TODO: get_proposals
-// TODO: vote_at
 
 // System actions
 
@@ -195,7 +176,7 @@ fn close_committee_proposal(id: usize) {
         .with(|config| config.borrow().clone())
         .ok_or(ContractError::ConfigNotSet)
         .unwrap();
-    //let committee_size = USERS.with(|users| users.borrow().len());
+
     let committee_size = USERS.with(|users| users.borrow().get_committee_size());
 
     COMMITTEE_PROPOSALS
@@ -267,9 +248,6 @@ fn create_user_propose(propose: &UserPropose, creator: Principal) -> Result<(), 
                     .create_proposal(config, creator, &proposal_content)
             })
         }
-        UserPropose::ElectionsToSejm(_) => todo!(),
-        UserPropose::ElectionsToSenate(_) => todo!(),
-        UserPropose::Referendum(_) => todo!(),
     };
     Ok(())
 }
